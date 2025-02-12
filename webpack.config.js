@@ -1,0 +1,1 @@
+VectorDB-Manager/webpack.config.js

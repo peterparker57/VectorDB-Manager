@@ -1,0 +1,1 @@
+VectorDB-Manager/src/renderer/App.tsx

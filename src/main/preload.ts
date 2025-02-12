@@ -1,0 +1,1 @@
+VectorDB-Manager/src/main/preload.ts

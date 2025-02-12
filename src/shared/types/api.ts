@@ -1,0 +1,1 @@
+VectorDB-Manager/src/shared/types/api.ts
