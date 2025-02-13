@@ -2,6 +2,28 @@
 
 A desktop application for managing and searching through documentation using vector embeddings. Supports Clarion source files (.clw, .inc, .equ) and Windows Help Files (.chm).
 
+## Project Status
+
+This project is being developed in phases:
+
+1. ✅ Phase 1 (Complete) - Initial Setup
+   - Basic application structure
+   - Electron/React setup
+   - Build system implementation
+
+2. ✅ Phase 2 (Complete) - Vector Database Integration
+   - MCP service integration
+   - File import capabilities
+   - Semantic search implementation
+   - Batch processing
+   - Performance optimizations
+
+3. 🚧 Phase 3 (In Progress) - Self-contained Architecture
+   - Architecture refinement
+   - Component isolation
+   - Performance optimization
+   - Deployment improvements
+
 ## Features
 
 - Import and process multiple file types:
