@@ -1,1 +1,1 @@
-VectorDB-Manager/src/renderer/App.tsx
+// Updated App.tsx with Grid layout and improved spacing

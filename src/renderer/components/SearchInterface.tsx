@@ -1,0 +1,1 @@
+// Enhanced search input and results display
