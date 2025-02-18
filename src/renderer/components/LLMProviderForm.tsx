@@ -11,7 +11,8 @@ import {
     Select,
     MenuItem,
     FormHelperText,
-    Box,
+    Box
+,
     CircularProgress
 } from '@mui/material';
 import {
@@ -83,7 +84,7 @@ const LLMProviderForm: React.FC<LLMProviderFormProps> = ({
         setType('local');
         setModel('');
         setApiKey('');
-        setEndpoint('');
+        setEndpoint('http://127.0.0.1:11434');
         setErrors({});
         setInstalledModels([]);
         setModelError('');
@@ -139,6 +140,7 @@ const LLMProviderForm: React.FC<LLMProviderFormProps> = ({
         onClose();
     };
 
+
     return (
         <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
             <DialogTitle>
@@ -170,7 +172,8 @@ const LLMProviderForm: React.FC<LLMProviderFormProps> = ({
                     <FormControl fullWidth error={!!errors.model || !!modelError}>
                         {type === 'local' ? (
                             <>
-                                <InputLabel>Model</InputLabel>
+        
+                        <InputLabel>Model</InputLabel>
                                 <Select
                                     value={model}
                                     label="Model"
@@ -226,7 +229,7 @@ const LLMProviderForm: React.FC<LLMProviderFormProps> = ({
                             value={endpoint}
                             onChange={(e) => setEndpoint(e.target.value)}
                             error={!!errors.endpoint}
-                            helperText={errors.endpoint || 'e.g., http://localhost:11434'}
+                            helperText={errors.endpoint || 'e.g., http://127.0.0.1:11434'}
                             fullWidth
                         />
                     )}
