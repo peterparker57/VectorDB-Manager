@@ -1,86 +1,91 @@
 import { ipcMain, BrowserWindow } from 'electron';
-import { VectorDBService } from '../services/vector-db.service';
+import { VectorStore } from '../services/vector-store';
 import { StatisticsService } from '../services/statistics.service';
-import { DatabaseManager } from '../services/database';
 import Logger from '../services/logger';
 
 export class SearchHandler {
-    private static instance: SearchHandler;
-    private vectorStore: VectorDBService;
-    private statisticsService: StatisticsService;
+    private vectorStore!: VectorStore;
+    private statisticsService!: StatisticsService;
     private logger: Logger;
-    private db: DatabaseManager;
+    private initialized: boolean = false;
 
-    private constructor() {
+    constructor() {
         this.logger = Logger.getInstance();
-        this.db = DatabaseManager.getInstance();
-        this.vectorStore = VectorDBService.getInstance();
-        this.statisticsService = StatisticsService.getInstance(this.db.getDatabase());
     }
 
-    public static getInstance(): SearchHandler {
-        if (!SearchHandler.instance) {
-            SearchHandler.instance = new SearchHandler();
+    async initialize() {
+        if (this.initialized) {
+            return this;
         }
-        return SearchHandler.instance;
+
+        try {
+            this.vectorStore = await VectorStore.create();
+            this.statisticsService = new StatisticsService();
+            this.registerHandlers();
+            this.initialized = true;
+            return this;
+        } catch (error) {
+            this.logger.error('Failed to initialize search handler:', error as Error);
+            throw error;
+        }
     }
 
-    public setupHandlers(): void {
-        ipcMain.handle('search:clear-database', async () => {
+    private registerHandlers(): void {
+        ipcMain.handle('search:search', async (_, query: string, filters: any) => {
             try {
+                this.logger.info(`Search handler: Searching for "${query}" with filters:`, filters);
+                const startTime = Date.now();
+                const results = await this.vectorStore.search(query, filters);
+                const executionTime = Date.now() - startTime;
+                
+                // Update statistics
+                await this.statisticsService.incrementSearchCount();
+                
+                this.logger.info(`Search completed in ${executionTime}ms, found ${results.length} results`);
+                return {
+                    success: true,
+                    results,
+                    totalResults: results.length,
+                    executionTime
+                };
+            } catch (error) {
+                const err = error as Error;
+                this.logger.error(`Error in search handler: ${err.message}`);
+                return {
+                    success: false,
+                    results: [],
+                    error: err.message
+                };
+            }
+        });
+
+        ipcMain.handle('search:clear-database', async (event) => {
+            try {
+                this.logger.info('Search handler: Clearing database');
                 await this.vectorStore.clearDatabase();
-                // Notify statistics subscribers about the change
-                await this.statisticsService.updateDatabaseStats();
-                const mainWindow = BrowserWindow.getAllWindows()[0];
-                if (mainWindow) {
-                    mainWindow.webContents.send('statistics:updated', {
-                        success: true,
-                        statistics: await this.statisticsService.getStatistics()
-                    });
+                
+                // Update statistics
+                await this.statisticsService.resetDocumentCounts();
+                
+                // Notify all windows about the statistics update
+                const window = BrowserWindow.fromWebContents(event.sender);
+                if (window) {
+                    const allWindows = BrowserWindow.getAllWindows();
+                    for (const win of allWindows) {
+                        if (!win.isDestroyed()) {
+                            win.webContents.send('statistics:update', await this.statisticsService.getStatistics());
+                        }
+                    }
                 }
-                return {
-                    success: true
-                };
+                
+                this.logger.info('Database cleared successfully');
+                return { success: true };
             } catch (error) {
                 const err = error as Error;
-                this.logger.error('Failed to clear database:', err);
+                this.logger.error(`Error clearing database: ${err.message}`);
                 return {
                     success: false,
-                    error: err.message || 'Failed to clear database'
-                };
-            }
-        });
-
-        ipcMain.handle('search:search', async (_, query: string, filters?: any) => {
-            try {
-                const results = await this.vectorStore.query(query, filters);
-                return {
-                    success: true,
-                    results
-                };
-            } catch (error) {
-                const err = error as Error;
-                this.logger.error('Search failed:', err);
-                return {
-                    success: false,
-                    error: err.message || 'Search failed'
-                };
-            }
-        });
-
-        ipcMain.handle('search:get-supported-types', async () => {
-            try {
-                const extensions = await this.vectorStore.getSupportedExtensions();
-                return {
-                    success: true,
-                    extensions
-                };
-            } catch (error) {
-                const err = error as Error;
-                this.logger.error('Failed to get supported types:', err);
-                return {
-                    success: false,
-                    error: err.message || 'Failed to get supported types'
+                    error: err.message
                 };
             }
         });
