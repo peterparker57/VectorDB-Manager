@@ -1,88 +1,68 @@
 # ADR-004: Electron App Startup Fixes
 
 ## Status
+
 Accepted
 
 ## Context
-The Electron application was failing to start with two main issues:
-1. HTML file loading error: The application couldn't find the renderer's HTML file because it was looking in the wrong location
-2. Database access error: The LLM provider handler couldn't access the SQLite database because the DatabaseManager class didn't expose its database instance
 
-These issues are common in Electron applications due to:
-- The complexity of managing file paths across development and production environments
-- The need to balance encapsulation of database access with practical service requirements
+The VectorDB-Manager Electron application was not showing the main HTML screen when compiled and run. The application would start, but the window would remain blank or not appear at all. This issue was caused by several factors:
+
+1. **HTML Path Resolution**: The main process was looking for the HTML file at a specific path (`../renderer/index.html` relative to the main.js file), but this path might not be correct in all environments or build configurations.
+
+2. **Webpack Configuration**: The webpack.renderer.config.js file was copying the HTML file from 'public/index.html' to './index.html' in the output directory, but the main process was looking for it at '../renderer/index.html'.
+
+3. **Build Process**: The build process might not be correctly copying all necessary files to the right locations.
+
+4. **Window Visibility**: The window was created with `show: false` and was supposed to be shown when the 'ready-to-show' event fired, but this event might not be firing if the HTML file wasn't loaded correctly.
 
 ## Decision
 
-### 1. Webpack Configuration Fix
-Modified the webpack configuration to ensure consistent output paths:
-- Main process files -> dist/main/
-- Renderer files -> dist/renderer/
-- Preload script -> dist/main/
-- Updated package.json "main" field to point to "dist/main/index.js"
+Implement a comprehensive fix with the following components:
 
-### 2. Database Access Pattern
-Added a controlled way to access the database instance:
-- Added `getDatabase()` method to DatabaseManager class
-- Maintains encapsulation while providing necessary access
-- Allows LLM provider handler to initialize with direct database access
+1. **Multiple HTML Path Resolution**: Modify the main process to try loading the HTML file from multiple possible paths:
+   ```typescript
+   const possiblePaths = [
+       path.join(__dirname, '../renderer/index.html'),
+       path.join(__dirname, '../../renderer/index.html'),
+       path.join(app.getAppPath(), 'dist/renderer/index.html'),
+       path.join(process.cwd(), 'dist/renderer/index.html'),
+       path.join(process.cwd(), 'simple.html')
+   ];
+   ```
 
-## Implementation Details
+2. **File Existence Check**: Add a check to verify if the HTML file exists before attempting to load it.
 
-### Webpack Config Changes
-```javascript
-const mainConfig = {
-  output: {
-    filename: 'index.js',
-    path: path.resolve(__dirname, 'dist/main'),
-  }
-};
+3. **Fallback HTML File**: Create a simple HTML file in the project root as a fallback, ensuring that at least some content is displayed even if the main renderer HTML file can't be found.
 
-const rendererConfig = {
-  output: {
-    filename: 'renderer.js',
-    path: path.resolve(__dirname, 'dist/renderer'),
-  }
-};
-```
+4. **Improved Error Handling**: Add better error handling and logging to help diagnose issues with HTML file loading.
 
-### DatabaseManager Changes
-```typescript
-export class DatabaseManager {
-  private db: Database.Database;
-  
-  // Added method to expose database instance
-  getDatabase(): Database.Database {
-    return this.db;
-  }
-}
-```
+5. **Consistent Webpack Configuration**: Ensure that the webpack configuration files are consistent in how they handle the HTML file.
 
 ## Consequences
 
 ### Positive
-- Application starts successfully
-- Clear separation of built files
-- Maintainable database access pattern
-- Better error handling for file loading
-- Consistent behavior across development and production
+
+- The application now reliably shows the main HTML screen when compiled and run.
+- The fallback HTML file ensures that users see something even if the main HTML file can't be found.
+- Improved error handling and logging make it easier to diagnose issues.
+- The fix is robust and works across different environments and build configurations.
 
 ### Negative
-- Slightly reduced database encapsulation
-- Need to maintain correct file paths in multiple configurations
+
+- The solution adds complexity to the HTML loading process.
+- The fallback HTML file is a temporary solution and doesn't provide the full functionality of the application.
+
+## Implementation
+
+The implementation includes:
+
+1. Modifying the main process to try loading the HTML file from multiple possible paths.
+2. Adding a check to verify if the HTML file exists before attempting to load it.
+3. Creating a simple HTML file in the project root as a fallback.
+4. Adding better error handling and logging.
+5. Ensuring that the webpack configuration files are consistent.
 
 ## Notes
-This pattern of issues often recurs in Electron applications because:
-1. File paths need to work both in development (loose files) and production (packaged asar)
-2. Services often need controlled access to lower-level resources
 
-To avoid similar issues in future:
-1. Always use path.join for file paths
-2. Consider file locations in both dev and prod
-3. Design services with clear access patterns
-4. Document required access patterns in interfaces
-
-## References
-- [Electron File Path Best Practices](https://www.electronjs.org/docs/latest/api/app#appgetapppath)
-- [Webpack Output Management](https://webpack.js.org/concepts/output/)
-- [SQLite Database Access Patterns](https://github.com/WiseLibs/better-sqlite3/blob/master/docs/api.md)
+This fix addresses the immediate issue of the application not showing the main HTML screen, but there may be underlying issues with the build process that should be addressed in the future. A more comprehensive solution would be to standardize the path resolution in the application and ensure that the build process correctly copies all necessary files to the right locations.
