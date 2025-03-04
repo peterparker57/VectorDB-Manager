@@ -1,1 +1,9 @@
-VectorDB-Manager/.gitignore
+node_modules
+dist
+.DS_Store
+*.log
+logs
+.vscode
+.idea
+*.db
+*.db-journal
